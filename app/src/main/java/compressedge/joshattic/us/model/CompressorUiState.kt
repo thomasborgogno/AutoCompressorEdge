@@ -79,6 +79,7 @@ data class CompressorUiState(
     val autoSaveToPhotos: Boolean = false,
     val backgroundCompressionEnabled: Boolean = false,
     val backgroundCompressionPrompted: Boolean = false,
+    val cameraWatchEnabled: Boolean = false,
     val customOutputTreeUri: String? = null,
     val customOutputFolderName: String? = null,
     val hasShared: Boolean = false,

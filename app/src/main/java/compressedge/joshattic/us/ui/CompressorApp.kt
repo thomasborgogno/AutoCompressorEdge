@@ -189,6 +189,36 @@ fun CompressorApp(viewModel: CompressorViewModel) {
         }
     }
 
+    var showCameraWatchPermissionDialog by remember { mutableStateOf(false) }
+
+    val requestCameraWatchNotificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        viewModel.setCameraWatchEnabled(true)
+    }
+
+    val requestAllFilesAccess = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestCameraWatchNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            viewModel.setCameraWatchEnabled(true)
+        }
+    }
+
+    fun onToggleCameraWatch() {
+        if (state.cameraWatchEnabled) {
+            viewModel.setCameraWatchEnabled(false)
+        } else if (!compressedge.joshattic.us.utils.MediaDeleter.hasAllFilesAccess()) {
+            showCameraWatchPermissionDialog = true
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestCameraWatchNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            viewModel.setCameraWatchEnabled(true)
+        }
+    }
+
     fun startCompressionFlow() {
         if (!state.backgroundCompressionPrompted) {
             showBackgroundCompressionDialog = true
@@ -316,6 +346,7 @@ fun CompressorApp(viewModel: CompressorViewModel) {
                                 onBack = { currentSettingsDestination = SettingsDestination.MAIN },
                                 onToggleAutoSaveToPhotos = { viewModel.toggleAutoSaveToPhotos() },
                                 onToggleBackgroundCompression = { viewModel.toggleBackgroundCompression() },
+                                onToggleCameraWatch = { onToggleCameraWatch() },
                                 onChangeOutputLocation = {
                                     val initial = state.customOutputTreeUri?.let { Uri.parse(it) }
                                     openDocumentTreeLauncher.launch(initial)
@@ -495,6 +526,29 @@ fun CompressorApp(viewModel: CompressorViewModel) {
                     viewModel.startCompression(context)
                 }) {
                     Text(stringResource(R.string.bg_compression_not_now))
+                }
+            }
+        )
+    }
+
+    if (showCameraWatchPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showCameraWatchPermissionDialog = false },
+            title = { Text(stringResource(R.string.camera_watch_permission_dialog_title)) },
+            text = { Text(stringResource(R.string.camera_watch_permission_dialog_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCameraWatchPermissionDialog = false
+                    requestAllFilesAccess.launch(
+                        compressedge.joshattic.us.utils.MediaDeleter.createAllFilesAccessIntent(context)
+                    )
+                }) {
+                    Text(stringResource(R.string.camera_watch_permission_grant))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCameraWatchPermissionDialog = false }) {
+                    Text(stringResource(R.string.camera_watch_permission_cancel))
                 }
             }
         )

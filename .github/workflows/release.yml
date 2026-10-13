@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'app/build.gradle.kts'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Version comes from app/build.gradle.kts (versionName / versionCode), not from git tags.
+      - name: Read version from build.gradle.kts
+        run: |
+          NAME=$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' app/build.gradle.kts | head -n 1)
+          CODE=$(sed -nE 's/^[[:space:]]*versionCode[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p' app/build.gradle.kts | head -n 1)
+          if [ -z "$NAME" ] || [ -z "$CODE" ]; then
+            echo "::error::Could not read versionName/versionCode from app/build.gradle.kts"
+            exit 1
+          fi
+          SLUG=$(echo "$NAME" | tr '[:upper:] ' '[:lower:]-')
+          echo "VERSION_NAME=$NAME" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$CODE" >> "$GITHUB_ENV"
+          echo "TAG=$SLUG" >> "$GITHUB_ENV"
+          echo "Version: $NAME (code $CODE) -> tag $SLUG"
+
+      - name: Skip if release already exists
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::notice::Release $TAG already exists, bump versionCode/versionName to publish a new one"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 17
+        if: steps.check.outputs.exists == 'false'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        if: steps.check.outputs.exists == 'false'
+        run: chmod +x gradlew
+
+      # Requires repository secrets:
+      #   KEYSTORE_BASE64   base64 of the .jks file  (base64 -w0 my-release-key.jks)
+      #   KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+      # Without KEYSTORE_BASE64 the APK is built unsigned.
+      - name: Restore signing config
+        if: steps.check.outputs.exists == 'false'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::KEYSTORE_BASE64 not set, building an unsigned release APK"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > release.jks
+          {
+            echo "storeFile=release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > keystore.properties
+
+      - name: Build release APK
+        if: steps.check.outputs.exists == 'false'
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Prepare asset
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
+          mkdir -p dist
+          cp "$APK" "dist/AutoCompressorEdge-${TAG}.apk"
+          (cd dist && sha256sum "AutoCompressorEdge-${TAG}.apk" > "AutoCompressorEdge-${TAG}.apk.sha256")
+
+      - name: Create GitHub release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* \
+              --title "$TAG" \
+              --generate-notes \
+              --target "${{ github.sha }}"
+          fi
+
+      - name: Remove signing files
+        if: always()
+        run: rm -f release.jks keystore.properties

@@ -28,9 +28,12 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.Transformer
 import compressedge.joshattic.us.BuildConfig
 import compressedge.joshattic.us.R
+import compressedge.joshattic.us.camera.CameraVideoWatcher
 import compressedge.joshattic.us.compression.BackgroundCompressionManager
 import compressedge.joshattic.us.compression.BackgroundCompressionService
 import compressedge.joshattic.us.compression.CompressionExecutor
+import compressedge.joshattic.us.utils.MediaDeleter
+import compressedge.joshattic.us.utils.MediaStoreVideoSaver
 import compressedge.joshattic.us.model.CompressorUiState
 import compressedge.joshattic.us.model.FilenameSegment
 import compressedge.joshattic.us.model.DefaultAudioConfig
@@ -117,6 +120,7 @@ class CompressorViewModel(application: Application) : AndroidViewModel(applicati
         }
         val backgroundCompressionEnabled = prefs.getBoolean("background_compression_enabled", false)
         val backgroundCompressionPrompted = prefs.getBoolean("background_compression_prompted", false)
+        val cameraWatchEnabled = prefs.getBoolean(CameraVideoWatcher.PREF_ENABLED, false)
 
         _uiState.update { it.copy(
             totalSavedBytes = saved, 
@@ -127,6 +131,7 @@ class CompressorViewModel(application: Application) : AndroidViewModel(applicati
             autoSaveToPhotos = autoSaveToPhotos,
             backgroundCompressionEnabled = backgroundCompressionEnabled,
             backgroundCompressionPrompted = backgroundCompressionPrompted,
+            cameraWatchEnabled = cameraWatchEnabled,
             customOutputTreeUri = customOutputTreeUri,
             customOutputFolderName = customOutputFolderName,
             highPresetConfig = highConfig,
@@ -1149,6 +1154,58 @@ class CompressorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /** Uris imported from the camera-watch notification, mapped to the original's MediaStore
+     * RELATIVE_PATH (e.g. "DCIM/Camera/") so the compressed output can be saved back there and
+     * the source file deleted on success. */
+    private val autoDeleteSourceRelativePaths = mutableMapOf<Uri, String>()
+
+    fun setCameraWatchEnabled(enabled: Boolean) {
+        val context = getApplication<Application>()
+        prefs.edit { putBoolean(CameraVideoWatcher.PREF_ENABLED, enabled) }
+        if (enabled) {
+            CameraVideoWatcher.schedule(context)
+        } else {
+            CameraVideoWatcher.cancel(context)
+        }
+        _uiState.update { it.copy(cameraWatchEnabled = enabled) }
+    }
+
+    /** Imports a video the user tapped to compress from the camera-watch notification. */
+    fun importAutoDetectedVideo(context: Context, uri: Uri, autoDeleteSource: Boolean, originalRelativePath: String?) {
+        if (autoDeleteSource) {
+            autoDeleteSourceRelativePaths[uri] = originalRelativePath?.takeIf { it.isNotBlank() }
+                ?: (Environment.DIRECTORY_DCIM + "/Camera/")
+        }
+        updateSelectedUris(context, listOf(uri))
+    }
+
+    /**
+     * Saves each completed item's compressed output back into the original recording's folder
+     * and deletes the original, for items that came from the camera-watch flow.
+     */
+    private fun finalizeAutoDetectedOutputs(items: List<compressedge.joshattic.us.model.QueueItem>, outputUris: List<Uri>) {
+        val pending = items.withIndex().mapNotNull { (index, item) ->
+            val relativePath = autoDeleteSourceRelativePaths[item.uri] ?: return@mapNotNull null
+            val outputUri = outputUris.getOrNull(index) ?: return@mapNotNull null
+            Triple(item.uri, relativePath, outputUri)
+        }
+        if (pending.isEmpty()) return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val context = getApplication<Application>()
+            for ((sourceUri, relativePath, outputUri) in pending) {
+                val outputPath = outputUri.path
+                val outputFile = outputPath?.let { File(it) }
+                if (outputFile != null && outputFile.exists() &&
+                    MediaStoreVideoSaver.saveToRelativePath(context, outputFile, relativePath)
+                ) {
+                    MediaDeleter.deleteOriginalVideo(context, sourceUri)
+                }
+                autoDeleteSourceRelativePaths.remove(sourceUri)
+            }
+        }
+    }
+
     fun setCustomOutputFolder(context: Context, treeUri: Uri) {
         try {
             releasePersistedTreeUri(context, _uiState.value.customOutputTreeUri)
@@ -1567,7 +1624,8 @@ class CompressorViewModel(application: Application) : AndroidViewModel(applicati
                     lastUri = outputUri
                     completedUris.add(outputUri)
                     
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && _uiState.value.autoSaveToPhotos) {
+                    val isItemAutoDetected = autoDeleteSourceRelativePaths.containsKey(item.uri)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && _uiState.value.autoSaveToPhotos && !isItemAutoDetected) {
                         saveCompressedOutput(getApplication())
                     }
                 } catch (e: Exception) {
@@ -1611,6 +1669,7 @@ class CompressorViewModel(application: Application) : AndroidViewModel(applicati
                         totalSavedBytes = newTotal
                     )
                 }
+                finalizeAutoDetectedOutputs(itemsToProcess, completedUris)
             }
         }
     }
@@ -1804,9 +1863,12 @@ class CompressorViewModel(application: Application) : AndroidViewModel(applicati
                                 warnings = bg.hdrWarning?.let { w -> listOf(w) } ?: it.warnings
                             )
                         }
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && _uiState.value.autoSaveToPhotos) {
+                        val allItemsAutoDetected = itemsToProcess.isNotEmpty() &&
+                            itemsToProcess.all { autoDeleteSourceRelativePaths.containsKey(it.uri) }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && _uiState.value.autoSaveToPhotos && !allItemsAutoDetected) {
                             saveCompressedOutput(getApplication())
                         }
+                        finalizeAutoDetectedOutputs(itemsToProcess, bg.compressedUris)
                     }
                     bg.completed && bg.error != null -> {
                         _uiState.update {
