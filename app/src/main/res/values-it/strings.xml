@@ -1,0 +1,308 @@
+<resources>
+    <string name="app_name">Compressor Edge</string>
+    <string name="title_compressor">Compressor Edge</string>
+    <string name="share">Condividi</string>
+    <string name="saved">Salvato</string>
+    <string name="saving">Salvataggio…</string>
+    <string name="save_action">Salva</string>
+    <string name="save_to_photos">Salva in Foto</string>
+    <string name="compress_another_video">Comprimi un altro video</string>
+    <string name="buy_coffee">☕ Ti piace Compressor Edge? Offrimi un caffè!</string>
+    <string name="share_video_title">Condividi video compresso</string>
+    <string name="share_error">Impossibile condividere: %1$s</string>
+    <string name="original">Originale</string>
+    <string name="estimated">Stimato</string>
+
+    <!-- Presets -->
+    <string name="preset_high">Alta</string>
+    <string name="preset_high_desc">Solo bitrate ottimizzato</string>
+    <string name="preset_medium">Media</string>
+    <string name="preset_medium_desc">1080p • 30fps</string>
+    <string name="preset_low">Bassa</string>
+    <string name="preset_low_desc">720p • 30fps</string>
+
+    <string name="quality_preset">Cambia qualità video</string>
+    <string name="header_quality_presets">Preset di qualità</string>
+    <string name="target_size_limits">Preset dimensione target</string>
+    <string name="advanced_options">Opzioni avanzate</string>
+    <string name="target_size">Dimensione target</string>
+    <string name="encoding">Codifica</string>
+    <string name="av1_high_efficiency">AV1 (Veloce • Efficiente)</string>
+    <string name="h265_efficient">H.265 (Efficiente)</string>
+    <string name="h264_compat">H.264 (Compatibile)</string>
+
+    <string name="delete_original">Elimina video originale</string>
+    <string name="delete_original_success">Video eliminato con successo</string>
+    <string name="delete_original_failed">Impossibile eliminare il video</string>
+    <string name="delete_confirm_title">Eliminare l\'originale?</string>
+
+    <string name="info_title">Info dispositivo e app</string>
+    <string name="info_copy_clipboard">Copia negli appunti</string>
+    <string name="info_copied">Copiato negli appunti</string>
+    <string name="show_bitrate">Mostra bitrate</string>
+    <string name="bitrate_unit_mbps">Mbps</string>
+
+    <string name="resolution">Risoluzione</string>
+    <string name="audio_options">Opzioni audio</string>
+    <string name="audio_encoding">Codifica audio</string>
+    <string name="audio_bitrate">Bitrate audio</string>
+    <string name="audio_codec_aac">AAC (Compatibile)</string>
+    <string name="audio_codec_opus">Opus (Efficiente)</string>
+    <string name="volume">Volume</string>
+    <string name="remove_audio">Rimuovi audio</string>
+    <string name="framerate">Framerate</string>
+    <string name="fps_60">60fps</string>
+    <string name="fps_30">30fps</string>
+    <string name="start_compression">Avvia compressione</string>
+    <string name="warning_hdr_tone_mapped">Il video HDR è stato convertito in SDR per evitare problemi di compatibilità con l\'encoder su questo dispositivo. Usa AV1 se devi preservare l\'HDR.</string>
+    <string name="warning_details">Dettagli avviso</string>
+    <string name="dismiss">Ignora</string>
+    <string name="target_size_warning">Dimensione target non raggiungibile, tocca per info</string>
+    <string name="target_size_warning_title">La dimensione target potrebbe non essere raggiungibile</string>
+    <string name="target_size_warning_details">Alcune impostazioni devono essere ridotte per raggiungere la dimensione target richiesta.</string>
+    <string name="accept_suggestion">Accetta suggerimento</string>
+    <string name="accept_all">Accetta tutto</string>
+    <string name="close">Chiudi</string>
+
+    <string name="error_prefix">Errore: %1$s</string>
+    <string name="select_video">Seleziona un video da comprimere</string>
+    <string name="add_video_desc">Aggiungi video</string>
+    <string name="total_saved">Hai risparmiato %1$s di spazio con Compressor Edge</string>
+
+    <string name="slider_less_space">Meno spazio</string>
+    <string name="slider_balanced">Bilanciato</string>
+    <string name="slider_high_quality">Qualità superiore</string>
+
+    <string name="compression_complete">Compressione completata!</string>
+    <string name="compressing_video_label">COMPRESSIONE VIDEO IN CORSO</string>
+    <string name="cancel">Annulla</string>
+
+    <!-- Background Compression -->
+    <string name="background_compression_title">Compressione in background</string>
+    <string name="background_compression_subtitle">Continua a comprimere anche se esci dall\'app (sperimentale)</string>
+    <string name="bg_compression_dialog_title">Attivare la compressione in background?</string>
+    <string name="bg_compression_dialog_message">La compressione continua anche se esci dall\'app. Questa funzione è sperimentale, potrebbe non funzionare su tutti i dispositivi e richiede i permessi di notifica e servizio in background.</string>
+    <string name="bg_compression_enable">Attiva</string>
+    <string name="bg_compression_not_now">Non ora</string>
+    <string name="notification_channel_name">Compressione in background</string>
+    <string name="notification_bg_title">Compressione video in corso</string>
+    <string name="notification_bg_starting">Avvio…</string>
+    <string name="notification_bg_done">Completato</string>
+    <string name="notification_bg_failed">Compressione non riuscita</string>
+    <string name="notification_bg_permission_denied">Permesso notifiche negato. La compressione in background continua senza notifiche.</string>
+
+    <!-- Camera video watcher -->
+    <string name="camera_watch_title">Rileva registrazioni della fotocamera</string>
+    <string name="camera_watch_subtitle">Ricevi una notifica per comprimere un video appena lo registri con l\'app fotocamera</string>
+    <string name="camera_watch_permission_dialog_title">Consentire l\'accesso completo ai file?</string>
+    <string name="camera_watch_permission_dialog_message">Per eliminare automaticamente la registrazione originale una volta compressa, Compressor Edge ha bisogno del permesso \"Accesso a tutti i file\". Verrai reindirizzato alle impostazioni di sistema per concederlo.</string>
+    <string name="camera_watch_permission_grant">Continua</string>
+    <string name="camera_watch_permission_cancel">Annulla</string>
+    <string name="notification_camera_watch_channel_name">Nuova registrazione fotocamera</string>
+    <string name="notification_camera_watch_title">%1$s · Comprimere questo video?</string>
+    <string name="notification_camera_watch_text">%1$s</string>
+
+    <!-- Errors -->
+    <string name="error_file_lost">File perso</string>
+    <string name="error_export_failed">Esportazione non riuscita: %1$s</string>
+    <string name="error_save_failed">Salvataggio non riuscito: %1$s</string>
+    <string name="error_gallery_entry">Impossibile creare la voce nella galleria</string>
+    <string name="error_unknown">Errore sconosciuto</string>
+    <string name="error_codec_unsupported">Questo codec video non è supportato dall\'hardware del tuo dispositivo.</string>
+    <string name="error_decoder_config_unsupported">Questo dispositivo non può decodificare questa configurazione del video sorgente.</string>
+    <string name="error_encoder_config_unsupported">Questo dispositivo non può codificare la configurazione di output selezionata.</string>
+    <string name="error_decoder_config_unsupported_details">Questo dispositivo non può decodificare questa configurazione del video sorgente (%1$dx%2$d @ %3$.1ffps, %4$s).</string>
+    <string name="error_encoder_config_unsupported_details">Questo dispositivo non può codificare le impostazioni di output selezionate. Provato: %1$s.</string>
+    <string name="warning_codec_fallback_h264">Il codec selezionato non è supportato per questo output su questo dispositivo. Passaggio a H.264 per compatibilità.</string>
+    <string name="warning_quality_fallback">Questo dispositivo non può codificare le impostazioni selezionate. Passaggio a H.264 a %1$dp e %2$dfps.</string>
+
+    <!-- Size Presets -->
+    <string name="size_discord">Discord</string>
+    <string name="size_github">GitHub</string>
+    <string name="size_email">Email</string>
+    <string name="size_stories">Storie • Nitro Basic</string>
+    <string name="size_messenger">Messenger • BlueSky</string>
+    <string name="size_nitro">Nitro • Reel</string>
+    <string name="size_twitter">Twitter/X</string>
+    <string name="size_whatsapp">WhatsApp • Telegram</string>
+    <string name="size_tg_premium">TG Premium • Feed</string>
+    <string name="size_x_premium">X Premium</string>
+    <string name="preset_summary_format">%1$s • %2$s • dimensione %3$s • audio %4$s</string>
+
+    <string name="unit_gb">GB</string>
+    <string name="unit_mb">MB</string>
+    <string name="unit_kb">KB</string>
+
+    <!-- Resolutions -->
+    <string name="res_8k">8K</string>
+    <string name="res_4k">4K</string>
+    <string name="res_2k">2K</string>
+    <string name="res_1080p">1080p</string>
+    <string name="res_720p">720p</string>
+    <string name="res_540p">540p</string>
+    <string name="res_480p">480p</string>
+    <string name="res_three_quarters">¾</string>
+    <string name="res_half">½</string>
+    <string name="res_quarter">¼</string>
+
+    <string name="compression_failed_title">Compressione non riuscita</string>
+    <string name="compression_larger_error">Il video compresso è più grande dell\'originale.\nIl video potrebbe essere già fortemente compresso o avere un bitrate molto basso.</string>
+    <string name="error_huawei_muxer">Questo problema potrebbe essere causato dal tuo dispositivo specifico. Prova a riavviarlo.</string>
+    <string name="try_again">Riprova</string>
+    <string name="save_anyway">Salva comunque</string>
+
+    <string name="report_error">Segnala errore</string>
+    <string name="error_details">Dettagli errore</string>
+    <string name="copy_logs">Copia log</string>
+    <string name="open_issue_tracker">Apri issue tracker</string>
+    <string name="view_on_github">Vedi su GitHub</string>
+    <string name="buy_me_a_coffee">Offrimi un caffè</string>
+
+    <string name="info_content_desc">Info</string>
+    <string name="tab_presets">Preset</string>
+    <string name="tab_video">Video</string>
+    <string name="tab_audio">Audio</string>
+
+    <!-- Settings Screen & i18n -->
+    <string name="settings_title">Impostazioni</string>
+    <string name="search_settings_hint">Cerca nelle impostazioni</string>
+    <string name="search_icon_desc">Cerca</string>
+    <string name="clear_search_desc">Cancella ricerca</string>
+    <string name="no_settings_found">Nessuna impostazione trovata</string>
+    <string name="about_compressor_title">Informazioni su Compressor Edge</string>
+    <string name="basic_info_header">Informazioni di base</string>
+    <string name="display_settings_title">Generali</string>
+    <string name="general_settings_title">Generali</string>
+    <string name="settings_content_desc">Impostazioni</string>
+    <string name="back">Indietro</string>
+
+    <string name="category_general_subtitle">Salvataggio automatico, posizione, bitrate, unità</string>
+    <string name="category_display_subtitle">Salvataggio automatico, posizione, bitrate, unità</string>
+    <string name="category_presets_subtitle">Opzioni di configurazione dei preset</string>
+    <string name="category_video_subtitle">Modifica le impostazioni video predefinite</string>
+    <string name="category_audio_subtitle">Modifica le impostazioni audio predefinite</string>
+    <string name="version_format">%1$s</string>
+
+    <string name="header_basic_info">Informazioni di base</string>
+    <string name="header_hardware_codecs">Hardware e codec</string>
+    <string name="header_links_actions">Link e azioni</string>
+    <string name="info_app_name">Nome app</string>
+    <string name="info_app_version">Versione app</string>
+    <string name="codecs_supported_count">%1$d codec supportati su questo dispositivo</string>
+    <string name="enable_all_codecs">Abilita tutti i codec</string>
+    <string name="software_encoding">Codifica software</string>
+
+    <string name="header_general_options">Opzioni generali</string>
+    <string name="header_display_options">Opzioni di visualizzazione</string>
+    <string name="auto_save_photos_title">Salva automaticamente</string>
+    <string name="auto_save_photos_subtitle">Salva automaticamente i video compressi dopo la compressione</string>
+    <string name="output_location_title">Posizione di salvataggio</string>
+    <string name="output_location_default">Foto (Movies/Compressor Edge)</string>
+    <string name="output_location_subtitle">Dove vengono salvati i video compressi per impostazione predefinita</string>
+    <string name="output_location_reset_title">Usa predefinita (Foto)</string>
+    <string name="output_location_reset_subtitle">Ripristina la posizione di salvataggio su Movies/Compressor Edge</string>
+
+    <string name="filename_builder_title">Generatore nome file</string>
+    <string name="filename_builder_subtitle">Trascina i chip per riordinarli, aggiungerli o rimuoverli.</string>
+    <string name="filename_placeholder_prefix">prefisso…</string>
+    <string name="filename_placeholder_suffix">suffisso…</string>
+    <string name="filename_drag_release_remove">Rilascia fuori dal riquadro per rimuovere il chip</string>
+    <string name="filename_drag_over_reorder">Trascina sulla posizione per riordinare</string>
+    <string name="filename_drag_release_add">Rilascia qui per aggiungere il chip</string>
+    <string name="filename_drag_into_area">Trascina il chip in quest\'area</string>
+    <string name="filename_available_chips_title">Chip dinamici disponibili (trascinali nell\'area sopra)</string>
+    <string name="filename_all_chips_added">Tutti i chip disponibili sono stati aggiunti.</string>
+    <string name="filename_prefix_label">Prefisso</string>
+    <string name="filename_prefix_placeholder">Inserisci prefisso...</string>
+    <string name="filename_active_tokens_title">Token selezionati</string>
+    <string name="filename_available_tokens_title">Tocca per aggiungere un token</string>
+    <string name="filename_preview_label">Anteprima:</string>
+    <string name="filename_reset_button">Ripristina formato nome file</string>
+
+    <string name="token_original_name">Nome originale</string>
+    <string name="token_compressed">Compresso</string>
+    <string name="token_date">Data</string>
+    <string name="token_time">Ora</string>
+    <string name="token_random">Numero casuale</string>
+    <string name="token_resolution">Risoluzione</string>
+    <string name="token_framerate">Framerate</string>
+    <string name="token_bitrate">Bitrate video</string>
+    <string name="token_audio_bitrate">Bitrate audio</string>
+    <string name="token_encoding">Codifica</string>
+    <string name="token_audio_status">Stato audio</string>
+    <string name="token_preset">Preset</string>
+    <string name="save_to_folder">Salva</string>
+    <string name="show_bitrate_subtitle">Mostra i valori di bitrate sulla dimensione originale e stimata</string>
+    <string name="bitrate_unit_mbps_subtitle">Mostra il bitrate in Mbps</string>
+    <string name="bitrate_unit_kbps_subtitle">Mostra il bitrate in kbps</string>
+    <string name="show_storage_saved_title">Mostra spazio risparmiato nella schermata principale</string>
+    <string name="show_storage_saved_subtitle">Mostra lo spazio di archiviazione totale risparmiato in fondo alla schermata principale</string>
+    <string name="show_target_size_preset_title">Mostra preset dimensione target</string>
+    <string name="show_target_size_preset_subtitle">Mostra la scheda dei preset di qualità durante la configurazione del video</string>
+
+    <string name="placeholder_video_desc">Le opzioni predefinite di compressione video e codec saranno disponibili in un prossimo aggiornamento.</string>
+    <string name="placeholder_audio_desc">Le opzioni predefinite di bitrate e canali audio saranno disponibili in un prossimo aggiornamento.</string>
+    <string name="placeholder_presets_desc">Le opzioni predefinite di configurazione dei preset saranno disponibili in un prossimo aggiornamento.</string>
+
+    <string name="are_you_sure">Sei sicuro?</string>
+    <string name="enable_all_codecs_warn_dialog">Abilitare tutti i codec potrebbe causare prestazioni scarse, errori di codifica, guerra termonucleare, batterie che si sciolgono e mani anomalmente calde</string>
+    <string name="warn_battery_life">ODIO la buona durata della batteria</string>
+    <string name="warn_hands_melt">AMO quando le mie mani si sciolgono</string>
+    <string name="warn_time">Il tempo non è un problema</string>
+    <string name="warn_crashes">AMO quando un\'app va in crash di continuo</string>
+    <string name="warn_bug_reports">NON aprirò alcuna segnalazione di bug finché questa opzione è attiva</string>
+    <string name="warning_count">%1$d avviso/i - Tocca per i dettagli</string>
+    <string name="step_away_codecs">Sei a %1$d passi dall\'abilitare tutti i codec.</string>
+    <string name="info_device">Dispositivo</string>
+    <string name="info_android">Versione Android</string>
+    <string name="info_chipset">Chipset / SoC</string>
+    <string name="info_ram">RAM</string>
+    <string name="info_gpu">GPU</string>
+    <string name="header_device_workarounds">Soluzioni specifiche per il dispositivo</string>
+    <string name="workaround_mediatek_vbr">VBR forzato MediaTek</string>
+    <string name="workaround_pixel10_hdr">Tone-map HDR Pixel 10 Series</string>
+    <string name="workaround_huawei_muxer">Fallback muxer Huawei</string>
+    <string name="workaround_none">Nessuna</string>
+    <string name="info_supported_codecs">Codec supportati</string>
+
+    <!-- Presets Management Keys -->
+    <string name="reset_to_default">Ripristina predefiniti</string>
+    <string name="add_preset">Aggiungi preset</string>
+    <string name="reset_presets_to_default">Ripristina preset predefiniti</string>
+    <string name="reset_presets_confirm_title">Ripristinare i preset dimensione target?</string>
+    <string name="reset_presets_confirm_message">Questo ripristinerà tutti i preset dimensione target predefiniti e rimuoverà quelli personalizzati.</string>
+    <string name="add_size_preset_title">Aggiungi preset dimensione</string>
+    <string name="edit_size_preset_title">Modifica preset dimensione</string>
+    <string name="preset_label_hint">Etichetta preset (es. Discord, Email)</string>
+    <string name="target_size_mb_hint">Dimensione target (in MB)</string>
+
+    <!-- Video & Audio Settings Keys -->
+    <string name="header_default_video_options">Opzioni video predefinite</string>
+    <string name="header_default_audio_options">Opzioni audio predefinite</string>
+    <string name="default_video_codec">Codec video predefinito</string>
+    <string name="default_video_codec_desc">Seleziona l\'encoder video predefinito per le nuove compressioni</string>
+    <string name="default_resolution">Risoluzione predefinita</string>
+    <string name="default_framerate">Framerate predefinito</string>
+    <string name="default_size_ratio">Rapporto dimensione target predefinito</string>
+    <string name="default_audio_codec">Codec audio predefinito</string>
+    <string name="default_audio_codec_desc">Seleziona l\'encoder audio predefinito per le nuove compressioni</string>
+    <string name="default_audio_bitrate">Bitrate audio predefinito</string>
+    <string name="default_mute_audio">Disattiva audio per impostazione predefinita</string>
+    <string name="default_mute_audio_desc">Rimuove automaticamente le tracce audio dai nuovi video</string>
+    <string name="default_audio_volume">Volume audio predefinito</string>
+    <string name="reset_video_defaults">Ripristina impostazioni video predefinite</string>
+    <string name="reset_audio_defaults">Ripristina impostazioni audio predefinite</string>
+
+    <!-- What's New Dialog -->
+    <string name="whats_new_title">Novità in Compressor Edge</string>
+    <string name="whats_new_version">%1$s</string>
+    <string name="whats_new_button">Ho capito</string>
+    <string name="whats_new_1_title">Compressione in batch</string>
+    <string name="whats_new_1_desc">Seleziona più video per comprimerli in batch! Configurali tutti insieme facilmente oppure personalizza ogni video singolarmente.</string>
+    <string name="whats_new_2_title">Nuovi preset e core aggiornato</string>
+    <string name="whats_new_2_desc">I preset integrati sono stati aggiornati per riflettere i cambiamenti delle piattaforme (come Discord a 20MB) e i componenti Media3 sono aggiornati all\'ultima versione.</string>
+    <string name="whats_new_3_title">Slider dimensione target migliorato</string>
+    <string name="whats_new_3_desc">Lo slider della dimensione target è stato migliorato per rendere più facile selezionare la dimensione che desideri davvero.</string>
+    <string name="whats_new_4_title">Correzioni di bug e miglioramenti UI</string>
+    <string name="whats_new_4_desc">Risolte le opzioni di risoluzione della coda batch, le transizioni di dissolvenza delle miniature, la validazione del pulsante di avvio e vari problemi dell\'interfaccia.</string>
+</resources>
