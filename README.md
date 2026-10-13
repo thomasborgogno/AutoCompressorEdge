@@ -1,67 +1,42 @@
 <div align="center">
   <img width="96" alt="ic_launcher-playstore" src="assets/logo.png?v=2" />
 
-# Compressor Edge
+# AutoCompressorEdge
 
-Be on the bleeding edge with Compressor Edge. Compressor Edge includes features & fixes that are not included in Compressor. 
+A personal fork of [Compressor Edge](https://github.com/JoshAtticus/CompressorEdge), adding automatic detection of camera recordings so they can be compressed right after you shoot them — with no need to open the app.
 
 <br>
 
-![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white) 
-![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white) 
-![License](https://img.shields.io/github/license/JoshAtticus/CompressorEdge?style=for-the-badge&v=2)
+![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
+![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 </div>
 
 > [!IMPORTANT]
-> Development of Compressor Edge has no fixed schedule, and Compressor takes priority over Compressor Edge.
-
-> [!WARNING]
-> Compressor Edge now requires **Android 8.0.0 or later** for release 2 and later. The original Compressor app's requirement of Android 7.0 has not changed.
-
-> [!TIP]
-> Looking for something more user friendly? Try the original Compressor app [here](https://github.com/JoshAtticus/Compressor)
+> This is an unofficial fork for personal use. For the original app, its full feature set, credits, support links and translations, see the upstream project: **[JoshAtticus/CompressorEdge](https://github.com/JoshAtticus/CompressorEdge)**.
 
 ---
 
-## Features
-Compressor Edge contains the following features not found in Compressor:
+## What this fork adds on top of Compressor Edge
 
-- Video Queue (Batch Compression)
-- Background Compression (with Live Activities & Screen-off support on Android 16+)
-- Enable All Codecs option in Settings
-- Audio Encoding Selection
+### 📹 Camera recording detection
+A background job watches for new videos recorded with the system camera app (no persistent service, battery-friendly — it wakes up only on a MediaStore change). As soon as a new recording is detected, you get a notification showing its size and asking if you'd like to compress it.
 
-There's more to come soon, Compressor Edge is always improving.
+- Tapping the notification opens the app with the video already imported, ready to configure and compress as usual.
+- Tapping one of the **Alta / Media / Bassa** (High / Medium / Low) quick-action buttons instead compresses the video **entirely in the background**, using that quality preset — no need to open the app at all.
 
----
+### 🔔 Smarter background notifications
+- The background compression notification shows a live progress bar while it runs.
+- When it finishes, it shows a summary: original size → compressed size and the percentage saved, then automatically dismisses itself after 10 minutes.
+- Output files default to `<original name>_<codec>.mp4` (e.g. `VID_2026-01-01_H265.mp4`).
 
-Do you like Compressor Edge? Consider supporting development by [buying me a coffee](https://www.buymeacoffee.com/joshatticus) ☕️
+### 🗑️ Automatic cleanup
+When a video is compressed through the camera-detection flow, the result is saved back into the same folder as the original recording (typically `DCIM/Camera`), and the original file is deleted automatically once the compressed copy is safely saved. This requires granting the "All files access" permission, which the app will prompt for when you enable the feature in Settings → General → *Detect camera recordings*.
 
-You can also donate with crypto:
-- **Bitcoin:** `bc1q8hkcv5xejcg4n4vf5839pqytp87v92rtgyyccr`
-- **Ethereum:** `0xC5Ae73a73F83CF48ed1Cb832ccb9Ca5ff1776EC9`
-- **Litecoin:** `ltc1qmf9s65cwk65rlepjme4auqhw7t2wz98f00n3t4`
-- **Solana Mainnet:** `HSkCeCd8BzabeVJTzrqcFYvsRmSGLrrDdtZ61oYBgNoD`
-
----
-
-## Credits
-Compressor Edge wouldn't be possible without these amazing people
-
-[@rA9stuff](https://github.com/rA9stuff) - Inspiration to create Compressor Edge & donated
-
-[@tgranz](https://github.com/tgranz) - Provided funding to get Compressor Edge on Google Play
-
-[@sirtoaks](https://github.com/sirtoaks) - Provided funding to get Compressor Edge on Google Play
-
-[@3r1s-s](https://github.com/3r1s-s) - Created Compressor Edge's new logo
-
-[@AhmedRX20](https://github.com/AhmedRX20) - Translated into Arabic
-
-I would like to acknowledge that Compressor Edge has used AI language models to assist in translation. Should you find any issues in translation, please open a bug report or a pull request so they can be fixed.
+### 🇮🇹 Italian localization
+Added a complete Italian translation (`values-it`), covering every string in the app, including the new camera-detection feature.
 
 ---
 
-## Star History
+## Everything else
 
-[![Star History Chart](https://api.star-history.com/chart?repos=JoshAtticus/CompressorEdge&type=date&legend=top-left&sealed_token=sNTeAN-m_zFqDfeGZd5lJAfsf4y3KjmvJR7uXX32il2bO6AFPFeqr7UiNveSw0YOrLwlol6zew0GOlZa21PNAzzf3XQLOhQCyoxJ3prS4EAmbhp3MOq_yg)](https://www.star-history.com/?type=date&repos=JoshAtticus%2FCompressorEdge)
+All other features, requirements, credits, support links, translations and the star history are maintained upstream and apply unchanged to this fork — see **[JoshAtticus/CompressorEdge](https://github.com/JoshAtticus/CompressorEdge)**.
