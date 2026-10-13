@@ -27,6 +27,7 @@ import compressedge.joshattic.us.utils.MediaDeleter
 import compressedge.joshattic.us.utils.MediaStoreVideoSaver
 import compressedge.joshattic.us.utils.formatFileSize
 import java.io.File
+import java.util.ArrayDeque
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -40,6 +41,11 @@ import kotlinx.coroutines.withContext
 /**
  * Foreground service that keeps a compression running while the app is in the
  * background. Experimental: results may vary across devices/OEMs.
+ *
+ * Headless compressions started from the camera-watch notification (ACTION_START) are queued
+ * and run one at a time — the device's hardware encoder is typically single-session — so tapping
+ * a preset on several pending notifications compresses all of them in turn instead of dropping
+ * all but the first.
  */
 @OptIn(UnstableApi::class)
 class BackgroundCompressionService : Service() {
@@ -68,6 +74,10 @@ class BackgroundCompressionService : Service() {
         const val EXTRA_AUTO_SAVE_RELATIVE_PATH = "extra_auto_save_relative_path"
         const val EXTRA_AUTO_DELETE_SOURCE_URI = "extra_auto_delete_source_uri"
 
+        /** Notification id to use for this headless job's progress/done notifications, so
+         * several queued jobs each keep their own distinct notification. */
+        const val EXTRA_RESULT_NOTIFICATION_ID = "extra_result_notification_id"
+
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "background_compression"
         private const val DONE_NOTIFICATION_TIMEOUT_MS = 10 * 60 * 1000L
@@ -78,11 +88,24 @@ class BackgroundCompressionService : Service() {
         }
     }
 
+    private data class HeadlessJob(
+        val params: CompressionExecutor.Params,
+        val outputPath: String,
+        val originalSize: Long,
+        val notificationId: Int,
+        val autoSaveRelativePath: String?,
+        val autoDeleteSourceUri: Uri?
+    )
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var transformer: Transformer? = null
     private var progressJob: Job? = null
     private var lastProgressPercent = -1
     private var cancelled = false
+
+    private val headlessQueue = ArrayDeque<HeadlessJob>()
+    private var activeHeadlessJob: HeadlessJob? = null
+    private var batchRunning = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -93,7 +116,7 @@ class BackgroundCompressionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_START) {
-            startCompression(intent)
+            enqueueHeadlessJob(intent)
         } else if (intent?.action == ACTION_START_BATCH) {
             startBatchCompression(intent)
         }
@@ -106,41 +129,23 @@ class BackgroundCompressionService : Service() {
         progressJob = null
         transformer?.cancel()
         transformer = null
+        headlessQueue.clear()
+        activeHeadlessJob = null
         scope.cancel()
         super.onDestroy()
     }
 
-    private fun startCompression(intent: Intent) {
-        if (transformer != null) return
-
+    private fun parseHeadlessJob(intent: Intent): HeadlessJob? {
         val inputUriString = intent.getStringExtra(EXTRA_INPUT_URI)
         val path = intent.getStringExtra(EXTRA_OUTPUT_PATH)
-        if (inputUriString.isNullOrBlank() || path.isNullOrBlank()) {
-            stopSelf()
-            return
-        }
+        if (inputUriString.isNullOrBlank() || path.isNullOrBlank()) return null
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                buildNotification(getString(R.string.notification_bg_starting), null),
-                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
-            )
-        } else {
-            startForeground(
-                NOTIFICATION_ID,
-                buildNotification(getString(R.string.notification_bg_starting), null)
-            )
-        }
-        val originalSize = intent.getLongExtra(EXTRA_ORIGINAL_SIZE, 0L)
-        val autoSaveRelativePath = intent.getStringExtra(EXTRA_AUTO_SAVE_RELATIVE_PATH)
         val autoDeleteSourceUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getParcelableExtra(EXTRA_AUTO_DELETE_SOURCE_URI, Uri::class.java)
         } else {
             @Suppress("DEPRECATION")
             intent.getParcelableExtra(EXTRA_AUTO_DELETE_SOURCE_URI)
         }
-        BackgroundCompressionManager.setRunning(originalSize)
 
         val params = CompressionExecutor.Params(
             inputUri = Uri.parse(inputUriString),
@@ -161,39 +166,99 @@ class BackgroundCompressionService : Service() {
             }
         )
 
+        return HeadlessJob(
+            params = params,
+            outputPath = path,
+            originalSize = intent.getLongExtra(EXTRA_ORIGINAL_SIZE, 0L),
+            notificationId = intent.getIntExtra(EXTRA_RESULT_NOTIFICATION_ID, NOTIFICATION_ID),
+            autoSaveRelativePath = intent.getStringExtra(EXTRA_AUTO_SAVE_RELATIVE_PATH),
+            autoDeleteSourceUri = autoDeleteSourceUri
+        )
+    }
+
+    private fun enqueueHeadlessJob(intent: Intent) {
+        val job = parseHeadlessJob(intent)
+        if (job == null) {
+            stopServiceIfIdle()
+            return
+        }
+        headlessQueue.addLast(job)
+        if (activeHeadlessJob == null) {
+            processNextHeadlessJob()
+        }
+    }
+
+    private fun processNextHeadlessJob() {
+        if (activeHeadlessJob != null || transformer != null) return
+        val next = headlessQueue.poll()
+        if (next == null) {
+            stopServiceIfIdle()
+            return
+        }
+        activeHeadlessJob = next
+        runHeadlessJob(next)
+    }
+
+    private fun stopServiceIfIdle() {
+        if (activeHeadlessJob == null && headlessQueue.isEmpty() && !batchRunning) {
+            // DETACH, not REMOVE: a done/failed notification may have just been posted under the
+            // same id that startForeground() used — REMOVE would delete it instantly.
+            stopForeground(STOP_FOREGROUND_DETACH)
+            stopSelf()
+        }
+    }
+
+    private fun runHeadlessJob(job: HeadlessJob) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                job.notificationId,
+                buildNotification(job.notificationId, getString(R.string.notification_bg_starting), null),
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
+            )
+        } else {
+            startForeground(
+                job.notificationId,
+                buildNotification(job.notificationId, getString(R.string.notification_bg_starting), null)
+            )
+        }
+        BackgroundCompressionManager.setRunning(job.originalSize)
+        lastProgressPercent = -1
+
         transformer = CompressionExecutor.execute(
             applicationContext,
-            params,
+            job.params,
             onCompleted = { finalSize ->
-                val uri = Uri.fromFile(File(path))
+                val uri = Uri.fromFile(File(job.outputPath))
                 BackgroundCompressionManager.complete(uri, finalSize)
-                val doneText = doneDetailsText(originalSize, finalSize)
+                val doneText = doneDetailsText(job.originalSize, finalSize)
+                val autoSaveRelativePath = job.autoSaveRelativePath
+                val autoDeleteSourceUri = job.autoDeleteSourceUri
                 if (autoSaveRelativePath != null && autoDeleteSourceUri != null) {
-                    // Keep the service (and its foreground notification) alive while this runs,
-                    // otherwise the imminent stopSelf() in finishCompression could race it.
+                    // Keep this job "active" (and the service alive) while this runs, otherwise
+                    // moving on to the next queued job too early could race it.
                     scope.launch(Dispatchers.IO) {
-                        val outputFile = File(path)
+                        val outputFile = File(job.outputPath)
                         if (outputFile.exists() &&
                             MediaStoreVideoSaver.saveToRelativePath(applicationContext, outputFile, autoSaveRelativePath)
                         ) {
                             MediaDeleter.deleteOriginalVideo(applicationContext, autoDeleteSourceUri)
                         }
                         withContext(Dispatchers.Main.immediate) {
-                            finishCompression(doneText)
+                            finishHeadlessJob(job, doneText)
                         }
                     }
                 } else {
-                    finishCompression(doneText)
+                    finishHeadlessJob(job, doneText)
                 }
             },
             onError = { exportException ->
                 if (cancelled) {
-                    finishCompression(null)
+                    finishHeadlessJob(job, null)
                     return@execute
                 }
                 val message = CompressionExecutor.errorMessage(applicationContext, exportException)
                 BackgroundCompressionManager.fail(message, exportException.stackTraceToString())
-                finishCompression(getString(R.string.notification_bg_failed))
+                finishHeadlessJob(job, getString(R.string.notification_bg_failed))
             }
         )
 
@@ -202,17 +267,30 @@ class BackgroundCompressionService : Service() {
                 val progressHolder = ProgressHolder()
                 val status = transformer?.getProgress(progressHolder)
                 if (status != null && status != Transformer.PROGRESS_STATE_NOT_STARTED) {
-                    val currentSize = if (File(path).exists()) File(path).length() else 0L
+                    val currentSize = if (File(job.outputPath).exists()) File(job.outputPath).length() else 0L
                     BackgroundCompressionManager.updateProgress(progressHolder.progress / 100f, currentSize)
                     val percent = progressHolder.progress
                     if (percent / 5 != lastProgressPercent) {
                         lastProgressPercent = percent / 5
-                        updateNotification(percent)
+                        updateNotification(job.notificationId, percent)
                     }
                 }
                 delay(200)
             }
         }
+    }
+
+    private fun finishHeadlessJob(job: HeadlessJob, notificationText: String?) {
+        progressJob?.cancel()
+        progressJob = null
+        transformer = null
+        if (notificationText != null) {
+            showDoneNotification(job.notificationId, notificationText)
+        } else {
+            NotificationManagerCompat.from(this).cancel(job.notificationId)
+        }
+        activeHeadlessJob = null
+        processNextHeadlessJob()
     }
 
     private fun doneDetailsText(originalSize: Long, compressedSize: Long): String {
@@ -230,14 +308,15 @@ class BackgroundCompressionService : Service() {
         progressJob?.cancel()
         progressJob = null
         transformer = null
+        batchRunning = false
         if (notificationText != null) {
-            showDoneNotification(notificationText)
+            showDoneNotification(NOTIFICATION_ID, notificationText)
         }
         stopForeground(STOP_FOREGROUND_DETACH)
-        stopSelf()
+        stopServiceIfIdle()
     }
 
-    private fun buildNotification(contentText: String, progressPercent: Int?): Notification {
+    private fun buildNotification(notificationId: Int, contentText: String, progressPercent: Int?): Notification {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             buildLiveUpdateNotification(contentText, progressPercent, contentIntent())
         } else {
@@ -341,13 +420,13 @@ class BackgroundCompressionService : Service() {
     private fun progressText(progressPercent: Int?): String =
         if (progressPercent != null) "$progressPercent%" else getString(R.string.notification_bg_starting)
 
-    private fun updateNotification(percent: Int) {
-        val notification = buildNotification(progressText(percent), percent)
-        notifyCompressionNotification(notification)
+    private fun updateNotification(notificationId: Int, percent: Int) {
+        val notification = buildNotification(notificationId, progressText(percent), percent)
+        notifyCompressionNotification(notificationId, notification)
     }
 
-    private fun showDoneNotification(contentText: String) {
-        notifyCompressionNotification(buildDoneNotification(this, contentText))
+    private fun showDoneNotification(notificationId: Int, contentText: String) {
+        notifyCompressionNotification(notificationId, buildDoneNotification(this, contentText))
     }
 
     /** No progress bar, auto-dismisses after 10 minutes if the user doesn't tap it first. */
@@ -365,35 +444,36 @@ class BackgroundCompressionService : Service() {
             .build()
     }
 
-    private fun notifyCompressionNotification(notification: Notification) {
+    private fun notifyCompressionNotification(notificationId: Int, notification: Notification) {
         val notificationManager = NotificationManagerCompat.from(this)
         if (notificationManager.areNotificationsEnabled()) {
-            notificationManager.notify(NOTIFICATION_ID, notification)
+            notificationManager.notify(notificationId, notification)
         }
     }
 
     private fun startBatchCompression(intent: Intent) {
         val batch = BackgroundCompressionManager.pendingBatch
         if (batch.isEmpty()) {
-            stopSelf()
+            stopServiceIfIdle()
             return
         }
         val totalOriginalSize = intent.getLongExtra(EXTRA_ORIGINAL_SIZE, 0L)
+        batchRunning = true
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NOTIFICATION_ID,
-                buildNotification(getString(R.string.notification_bg_starting), null),
+                buildNotification(NOTIFICATION_ID, getString(R.string.notification_bg_starting), null),
                 android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
             )
         } else {
             startForeground(
                 NOTIFICATION_ID,
-                buildNotification(getString(R.string.notification_bg_starting), null)
+                buildNotification(NOTIFICATION_ID, getString(R.string.notification_bg_starting), null)
             )
         }
 
-        progressJob = scope.launch(Dispatchers.IO) {
+        scope.launch(Dispatchers.IO) {
             var anyErrors = false
             var lastUri: Uri? = null
             val completedUris = mutableListOf<Uri>()
@@ -404,17 +484,17 @@ class BackgroundCompressionService : Service() {
                 try {
                     val finalSize = CompressionExecutor.executeSuspend(applicationContext, params) { holder, _ ->
                         val overallProgress = (index.toFloat() + (holder.progress / 100f)) / batch.size.toFloat()
-                        
+
                         val currentOutputSize = if (File(params.outputPath).exists()) File(params.outputPath).length() else 0L
                         BackgroundCompressionManager.updateProgress(overallProgress, currentOutputSize, params.inputUri, index)
-                        
+
                         val currentPercent = (overallProgress * 100).toInt()
                         if (currentPercent != lastProgressPercent) {
                             lastProgressPercent = currentPercent
-                            updateNotification(currentPercent)
+                            updateNotification(NOTIFICATION_ID, currentPercent)
                         }
                     }
-                    
+
                     val uri = Uri.fromFile(File(params.outputPath))
                     lastUri = uri
                     completedUris.add(uri)
@@ -426,7 +506,7 @@ class BackgroundCompressionService : Service() {
                     }
                     if (e !is kotlinx.coroutines.CancellationException) {
                         BackgroundCompressionManager.fail(errorMsg, e.stackTraceToString())
-                        updateNotification(0)
+                        updateNotification(NOTIFICATION_ID, 0)
                     }
                     anyErrors = true
                     break

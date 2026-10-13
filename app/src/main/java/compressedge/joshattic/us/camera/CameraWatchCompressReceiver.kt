@@ -29,9 +29,7 @@ class CameraWatchCompressReceiver : BroadcastReceiver() {
         const val ACTION_COMPRESS_PRESET = "compressedge.joshattic.us.action.COMPRESS_PRESET_FROM_NOTIFICATION"
         const val EXTRA_PRESET = "extra_preset"
         const val EXTRA_DISPLAY_NAME = "extra_display_name"
-
-        /** Must match CameraVideoWatcherJobService.NOTIFICATION_ID. */
-        private const val SOURCE_NOTIFICATION_ID = 2101
+        const val EXTRA_NOTIFICATION_ID = "extra_notification_id"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -54,13 +52,16 @@ class CameraWatchCompressReceiver : BroadcastReceiver() {
             return
         }
 
-        NotificationManagerCompat.from(context).cancel(SOURCE_NOTIFICATION_ID)
+        val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
+        if (notificationId != -1) {
+            NotificationManagerCompat.from(context).cancel(notificationId)
+        }
 
         val pendingResult = goAsync()
         val appContext = context.applicationContext
         thread {
             try {
-                startHeadlessCompression(appContext, uri, relativePath, displayName, preset)
+                startHeadlessCompression(appContext, uri, relativePath, displayName, preset, notificationId)
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
@@ -74,7 +75,8 @@ class CameraWatchCompressReceiver : BroadcastReceiver() {
         uri: Uri,
         relativePath: String,
         displayName: String,
-        preset: QualityPreset
+        preset: QualityPreset,
+        notificationId: Int
     ) {
         val metadata = VideoMetadataReader.read(context, uri)
         if (metadata.size <= 0L || metadata.durationMs <= 0L) return
@@ -133,6 +135,9 @@ class CameraWatchCompressReceiver : BroadcastReceiver() {
             putExtra(BackgroundCompressionService.EXTRA_AUDIO_VOLUME, 1f)
             putExtra(BackgroundCompressionService.EXTRA_AUTO_SAVE_RELATIVE_PATH, relativePath)
             putExtra(BackgroundCompressionService.EXTRA_AUTO_DELETE_SOURCE_URI, uri)
+            if (notificationId != -1) {
+                putExtra(BackgroundCompressionService.EXTRA_RESULT_NOTIFICATION_ID, notificationId)
+            }
         }
         ContextCompat.startForegroundService(context, serviceIntent)
     }

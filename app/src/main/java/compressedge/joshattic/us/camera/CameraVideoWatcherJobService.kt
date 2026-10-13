@@ -28,10 +28,15 @@ class CameraVideoWatcherJobService : JobService() {
 
     companion object {
         private const val CHANNEL_ID = "camera_video_watch"
-        private const val NOTIFICATION_ID = 2101
 
         /** Only react to videos that landed in MediaStore within this window. */
         private const val MAX_AGE_SECONDS = 120L
+
+        /** Keeps one distinct notification (and distinct PendingIntents) per recorded video,
+         * so recording several videos in a row stacks a notification for each one instead of
+         * replacing the previous one. */
+        private fun notificationIdFor(mediaStoreId: Long): Int =
+            (2_100_000 + (mediaStoreId % 900_000)).toInt()
     }
 
     override fun onStartJob(params: JobParameters?): Boolean {
@@ -48,13 +53,21 @@ class CameraVideoWatcherJobService : JobService() {
 
     override fun onStopJob(params: JobParameters?): Boolean = true
 
+    /**
+     * Looks at every video added since the last one we handled — not just the newest — because
+     * JobScheduler coalesces several rapid MediaStore changes (e.g. recording a few videos back
+     * to back) into a single job run. Looking only at the single newest row would then silently
+     * skip the earlier recordings instead of notifying about each of them.
+     */
     private fun checkForNewRecording() {
         val prefs = applicationContext.getSharedPreferences("compressor_prefs", Context.MODE_PRIVATE)
         if (!prefs.getBoolean(CameraVideoWatcher.PREF_ENABLED, false)) return
 
+        val lastNotifiedId = prefs.getLong(CameraVideoWatcher.PREF_LAST_NOTIFIED_ID, -1L)
+        val minDateAdded = (System.currentTimeMillis() / 1000) - MAX_AGE_SECONDS
+
         val projection = arrayOf(
             MediaStore.Video.Media._ID,
-            MediaStore.Video.Media.DATE_ADDED,
             MediaStore.Video.Media.SIZE,
             MediaStore.Video.Media.DISPLAY_NAME,
             MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
@@ -64,44 +77,43 @@ class CameraVideoWatcherJobService : JobService() {
         val cursor = applicationContext.contentResolver.query(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
             projection,
-            null,
-            null,
-            "${MediaStore.Video.Media.DATE_ADDED} DESC"
+            "${MediaStore.Video.Media._ID} > ? AND ${MediaStore.Video.Media.DATE_ADDED} >= ?",
+            arrayOf(lastNotifiedId.toString(), minDateAdded.toString()),
+            "${MediaStore.Video.Media._ID} ASC"
         ) ?: return
 
+        var highestSeenId = lastNotifiedId
         cursor.use {
-            if (!it.moveToFirst()) return
+            while (it.moveToNext()) {
+                val id = it.getLong(it.getColumnIndexOrThrow(MediaStore.Video.Media._ID))
+                val size = it.getLong(it.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE))
+                val name = it.getString(it.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)) ?: "video.mp4"
+                val bucket = it.getString(it.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)) ?: ""
+                val relativePath = try {
+                    it.getString(it.getColumnIndexOrThrow(MediaStore.Video.Media.RELATIVE_PATH)) ?: ""
+                } catch (e: Exception) {
+                    ""
+                }
 
-            val id = it.getLong(it.getColumnIndexOrThrow(MediaStore.Video.Media._ID))
-            val dateAdded = it.getLong(it.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED))
-            val size = it.getLong(it.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE))
-            val name = it.getString(it.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)) ?: "video.mp4"
-            val bucket = it.getString(it.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)) ?: ""
-            val relativePath = try {
-                it.getString(it.getColumnIndexOrThrow(MediaStore.Video.Media.RELATIVE_PATH)) ?: ""
-            } catch (e: Exception) {
-                ""
+                highestSeenId = id
+
+                val looksLikeCameraRecording = bucket.equals("Camera", ignoreCase = true) ||
+                    relativePath.contains("DCIM/Camera", ignoreCase = true)
+                if (!looksLikeCameraRecording) continue
+
+                val contentUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+                showCompressNotification(id, contentUri, name, size, relativePath)
             }
+        }
 
-            val lastNotifiedId = prefs.getLong(CameraVideoWatcher.PREF_LAST_NOTIFIED_ID, -1L)
-            if (id == lastNotifiedId) return
-
-            val ageSeconds = (System.currentTimeMillis() / 1000) - dateAdded
-            if (ageSeconds < 0 || ageSeconds > MAX_AGE_SECONDS) return
-
-            val looksLikeCameraRecording = bucket.equals("Camera", ignoreCase = true) ||
-                relativePath.contains("DCIM/Camera", ignoreCase = true)
-            if (!looksLikeCameraRecording) return
-
-            prefs.edit().putLong(CameraVideoWatcher.PREF_LAST_NOTIFIED_ID, id).apply()
-
-            val contentUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
-            showCompressNotification(contentUri, name, size, relativePath)
+        if (highestSeenId != lastNotifiedId) {
+            prefs.edit().putLong(CameraVideoWatcher.PREF_LAST_NOTIFIED_ID, highestSeenId).apply()
         }
     }
 
-    private fun showCompressNotification(uri: Uri, name: String, size: Long, relativePath: String) {
+    private fun showCompressNotification(mediaStoreId: Long, uri: Uri, name: String, size: Long, relativePath: String) {
         createNotificationChannel()
+        val notificationId = notificationIdFor(mediaStoreId)
 
         val importIntent = Intent(applicationContext, MainActivity::class.java).apply {
             action = MainActivity.ACTION_IMPORT_AUTO_VIDEO
@@ -116,7 +128,7 @@ class CameraVideoWatcherJobService : JobService() {
 
         val pendingIntent = PendingIntent.getActivity(
             applicationContext,
-            NOTIFICATION_ID,
+            notificationId,
             importIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -133,18 +145,19 @@ class CameraVideoWatcherJobService : JobService() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
 
-        presetAction(uri, name, relativePath, QualityPreset.HIGH, R.string.preset_high)?.let { builder.addAction(it) }
-        presetAction(uri, name, relativePath, QualityPreset.MEDIUM, R.string.preset_medium)?.let { builder.addAction(it) }
-        presetAction(uri, name, relativePath, QualityPreset.LOW, R.string.preset_low)?.let { builder.addAction(it) }
+        presetAction(notificationId, uri, name, relativePath, QualityPreset.HIGH, R.string.preset_high)?.let { builder.addAction(it) }
+        presetAction(notificationId, uri, name, relativePath, QualityPreset.MEDIUM, R.string.preset_medium)?.let { builder.addAction(it) }
+        presetAction(notificationId, uri, name, relativePath, QualityPreset.LOW, R.string.preset_low)?.let { builder.addAction(it) }
 
         val manager = NotificationManagerCompat.from(applicationContext)
         if (manager.areNotificationsEnabled()) {
-            manager.notify(NOTIFICATION_ID, builder.build())
+            manager.notify(notificationId, builder.build())
         }
     }
 
     /** One quick-action button per quality preset: tapping it compresses fully in the background. */
     private fun presetAction(
+        notificationId: Int,
         uri: Uri,
         name: String,
         relativePath: String,
@@ -157,8 +170,11 @@ class CameraVideoWatcherJobService : JobService() {
             putExtra(MainActivity.EXTRA_ORIGINAL_RELATIVE_PATH, relativePath)
             putExtra(CameraWatchCompressReceiver.EXTRA_DISPLAY_NAME, name)
             putExtra(CameraWatchCompressReceiver.EXTRA_PRESET, preset.name)
+            putExtra(CameraWatchCompressReceiver.EXTRA_NOTIFICATION_ID, notificationId)
         }
-        val requestCode = NOTIFICATION_ID + 1 + preset.ordinal
+        // Distinct request code per notification AND per preset, so each video's three buttons
+        // (and the notifications themselves) get independent PendingIntents.
+        val requestCode = notificationId * 10 + 1 + preset.ordinal
         val presetPendingIntent = PendingIntent.getBroadcast(
             applicationContext,
             requestCode,
