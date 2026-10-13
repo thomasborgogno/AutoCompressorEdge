@@ -90,7 +90,18 @@
     <string name="notification_bg_done">Done</string>
     <string name="notification_bg_failed">Compression failed</string>
     <string name="notification_bg_permission_denied">Notifications permission denied. Background compression continues without notifications.</string>
-    
+
+    <!-- Camera video watcher -->
+    <string name="camera_watch_title">Detect camera recordings</string>
+    <string name="camera_watch_subtitle">Get a notification to compress a video right after you record it with the camera app</string>
+    <string name="camera_watch_permission_dialog_title">Allow full file access?</string>
+    <string name="camera_watch_permission_dialog_message">To delete the original recording automatically once it\'s compressed, Compressor Edge needs the \"All files access\" permission. You\'ll be taken to the system settings to grant it.</string>
+    <string name="camera_watch_permission_grant">Continue</string>
+    <string name="camera_watch_permission_cancel">Cancel</string>
+    <string name="notification_camera_watch_channel_name">New camera recording</string>
+    <string name="notification_camera_watch_title">Compress this video?</string>
+    <string name="notification_camera_watch_text">%1$s • %2$s</string>
+
     <!-- Errors -->
     <string name="error_file_lost">File lost</string>
     <string name="error_export_failed">Export failed: %1$s</string>
