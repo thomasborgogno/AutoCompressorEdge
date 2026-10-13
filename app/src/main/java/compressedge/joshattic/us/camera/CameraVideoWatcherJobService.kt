@@ -122,8 +122,8 @@ class CameraVideoWatcherJobService : JobService() {
 
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(getString(R.string.notification_camera_watch_title))
-            .setContentText(getString(R.string.notification_camera_watch_text, name, formatFileSize(size)))
+            .setContentTitle(getString(R.string.notification_camera_watch_title, formatFileSize(size)))
+            .setContentText(getString(R.string.notification_camera_watch_text, name))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

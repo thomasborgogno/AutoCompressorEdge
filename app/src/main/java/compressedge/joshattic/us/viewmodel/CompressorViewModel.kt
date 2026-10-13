@@ -1,6 +1,7 @@
 package compressedge.joshattic.us.viewmodel
 
 import android.app.Application
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -1223,6 +1224,18 @@ class CompressorViewModel(application: Application) : AndroidViewModel(applicati
                 MediaStore.Video.Media.EXTERNAL_CONTENT_URI
             }
             val itemUri = context.contentResolver.insert(collection, values) ?: return false
+
+            // Saving our own compressed output into the watched Camera folder would otherwise
+            // look like a fresh recording to CameraVideoWatcherJobService and re-trigger the
+            // notification. Mark this row as already handled before the watcher job gets to it.
+            try {
+                context.getSharedPreferences("compressor_prefs", Context.MODE_PRIVATE).edit {
+                    putLong(CameraVideoWatcher.PREF_LAST_NOTIFIED_ID, ContentUris.parseId(itemUri))
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
             context.contentResolver.openOutputStream(itemUri)?.use { out ->
                 file.inputStream().use { input -> input.copyTo(out) }
             }

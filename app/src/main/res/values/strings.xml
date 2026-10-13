@@ -99,8 +99,8 @@
     <string name="camera_watch_permission_grant">Continue</string>
     <string name="camera_watch_permission_cancel">Cancel</string>
     <string name="notification_camera_watch_channel_name">New camera recording</string>
-    <string name="notification_camera_watch_title">Compress this video?</string>
-    <string name="notification_camera_watch_text">%1$s • %2$s</string>
+    <string name="notification_camera_watch_title">%1$s · Compress this video?</string>
+    <string name="notification_camera_watch_text">%1$s</string>
 
     <!-- Errors -->
     <string name="error_file_lost">File lost</string>
