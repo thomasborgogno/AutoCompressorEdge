@@ -1,7 +1,6 @@
 package compressedge.joshattic.us.viewmodel
 
 import android.app.Application
-import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -34,6 +33,7 @@ import compressedge.joshattic.us.compression.BackgroundCompressionManager
 import compressedge.joshattic.us.compression.BackgroundCompressionService
 import compressedge.joshattic.us.compression.CompressionExecutor
 import compressedge.joshattic.us.utils.MediaDeleter
+import compressedge.joshattic.us.utils.MediaStoreVideoSaver
 import compressedge.joshattic.us.model.CompressorUiState
 import compressedge.joshattic.us.model.FilenameSegment
 import compressedge.joshattic.us.model.DefaultAudioConfig
@@ -1197,57 +1197,12 @@ class CompressorViewModel(application: Application) : AndroidViewModel(applicati
                 val outputPath = outputUri.path
                 val outputFile = outputPath?.let { File(it) }
                 if (outputFile != null && outputFile.exists() &&
-                    saveFileToMediaStore(context, outputFile, relativePath)
+                    MediaStoreVideoSaver.saveToRelativePath(context, outputFile, relativePath)
                 ) {
                     MediaDeleter.deleteOriginalVideo(context, sourceUri)
                 }
                 autoDeleteSourceRelativePaths.remove(sourceUri)
             }
-        }
-    }
-
-    private fun saveFileToMediaStore(context: Context, file: File, relativePath: String): Boolean {
-        return try {
-            val values = ContentValues().apply {
-                put(MediaStore.Video.Media.DISPLAY_NAME, file.name)
-                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                put(MediaStore.Video.Media.DATE_ADDED, System.currentTimeMillis() / 1000)
-                put(MediaStore.Video.Media.DATE_MODIFIED, System.currentTimeMillis() / 1000)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(MediaStore.Video.Media.IS_PENDING, 1)
-                    put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
-                }
-            }
-            val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            } else {
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-            }
-            val itemUri = context.contentResolver.insert(collection, values) ?: return false
-
-            // Saving our own compressed output into the watched Camera folder would otherwise
-            // look like a fresh recording to CameraVideoWatcherJobService and re-trigger the
-            // notification. Mark this row as already handled before the watcher job gets to it.
-            try {
-                context.getSharedPreferences("compressor_prefs", Context.MODE_PRIVATE).edit {
-                    putLong(CameraVideoWatcher.PREF_LAST_NOTIFIED_ID, ContentUris.parseId(itemUri))
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-
-            context.contentResolver.openOutputStream(itemUri)?.use { out ->
-                file.inputStream().use { input -> input.copyTo(out) }
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                values.clear()
-                values.put(MediaStore.Video.Media.IS_PENDING, 0)
-                context.contentResolver.update(itemUri, values, null, null)
-            }
-            true
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
         }
     }
 

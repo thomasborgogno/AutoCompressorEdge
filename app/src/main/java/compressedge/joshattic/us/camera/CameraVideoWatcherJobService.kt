@@ -16,6 +16,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import compressedge.joshattic.us.MainActivity
 import compressedge.joshattic.us.R
+import compressedge.joshattic.us.model.QualityPreset
 import compressedge.joshattic.us.utils.formatFileSize
 import kotlin.concurrent.thread
 
@@ -120,20 +121,51 @@ class CameraVideoWatcherJobService : JobService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+        val expandedText = "$name\n${getString(R.string.notification_camera_watch_quality_label)}"
+
+        val builder = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.notification_camera_watch_title, formatFileSize(size)))
             .setContentText(getString(R.string.notification_camera_watch_text, name))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(expandedText))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
-            .build()
+
+        presetAction(uri, name, relativePath, QualityPreset.HIGH, R.string.preset_high)?.let { builder.addAction(it) }
+        presetAction(uri, name, relativePath, QualityPreset.MEDIUM, R.string.preset_medium)?.let { builder.addAction(it) }
+        presetAction(uri, name, relativePath, QualityPreset.LOW, R.string.preset_low)?.let { builder.addAction(it) }
 
         val manager = NotificationManagerCompat.from(applicationContext)
         if (manager.areNotificationsEnabled()) {
-            manager.notify(NOTIFICATION_ID, notification)
+            manager.notify(NOTIFICATION_ID, builder.build())
         }
+    }
+
+    /** One quick-action button per quality preset: tapping it compresses fully in the background. */
+    private fun presetAction(
+        uri: Uri,
+        name: String,
+        relativePath: String,
+        preset: QualityPreset,
+        labelRes: Int
+    ): NotificationCompat.Action? {
+        val presetIntent = Intent(applicationContext, CameraWatchCompressReceiver::class.java).apply {
+            action = CameraWatchCompressReceiver.ACTION_COMPRESS_PRESET
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(MainActivity.EXTRA_ORIGINAL_RELATIVE_PATH, relativePath)
+            putExtra(CameraWatchCompressReceiver.EXTRA_DISPLAY_NAME, name)
+            putExtra(CameraWatchCompressReceiver.EXTRA_PRESET, preset.name)
+        }
+        val requestCode = NOTIFICATION_ID + 1 + preset.ordinal
+        val presetPendingIntent = PendingIntent.getBroadcast(
+            applicationContext,
+            requestCode,
+            presetIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Action.Builder(R.drawable.ic_notification, getString(labelRes), presetPendingIntent).build()
     }
 
     private fun createNotificationChannel() {

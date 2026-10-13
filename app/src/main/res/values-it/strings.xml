@@ -88,6 +88,8 @@
     <string name="notification_bg_title">Compressione video in corso</string>
     <string name="notification_bg_starting">Avvio…</string>
     <string name="notification_bg_done">Completato</string>
+    <string name="notification_bg_done_title">Video compresso</string>
+    <string name="notification_bg_done_details">%1$s → %2$s (-%3$d%%)</string>
     <string name="notification_bg_failed">Compressione non riuscita</string>
     <string name="notification_bg_permission_denied">Permesso notifiche negato. La compressione in background continua senza notifiche.</string>
 
@@ -101,6 +103,7 @@
     <string name="notification_camera_watch_channel_name">Nuova registrazione fotocamera</string>
     <string name="notification_camera_watch_title">%1$s · Comprimere questo video?</string>
     <string name="notification_camera_watch_text">%1$s</string>
+    <string name="notification_camera_watch_quality_label">Qualità:</string>
 
     <!-- Errors -->
     <string name="error_file_lost">File perso</string>

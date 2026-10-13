@@ -17,15 +17,15 @@ import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import compressedge.joshattic.us.MainActivity
 import compressedge.joshattic.us.R
+import compressedge.joshattic.us.utils.MediaDeleter
+import compressedge.joshattic.us.utils.MediaStoreVideoSaver
+import compressedge.joshattic.us.utils.formatFileSize
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +35,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Foreground service that keeps a compression running while the app is in the
@@ -62,8 +63,14 @@ class BackgroundCompressionService : Service() {
         const val EXTRA_REMOVE_AUDIO = "extra_remove_audio"
         const val EXTRA_AUDIO_VOLUME = "extra_audio_volume"
 
+        /** Set only for fully headless compressions (e.g. triggered from a notification action):
+         * on success, save the output to this MediaStore RELATIVE_PATH and delete the source. */
+        const val EXTRA_AUTO_SAVE_RELATIVE_PATH = "extra_auto_save_relative_path"
+        const val EXTRA_AUTO_DELETE_SOURCE_URI = "extra_auto_delete_source_uri"
+
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "background_compression"
+        private const val DONE_NOTIFICATION_TIMEOUT_MS = 10 * 60 * 1000L
 
         /** Stops an in-flight background compression. */
         fun stop(context: android.content.Context) {
@@ -126,6 +133,13 @@ class BackgroundCompressionService : Service() {
             )
         }
         val originalSize = intent.getLongExtra(EXTRA_ORIGINAL_SIZE, 0L)
+        val autoSaveRelativePath = intent.getStringExtra(EXTRA_AUTO_SAVE_RELATIVE_PATH)
+        val autoDeleteSourceUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(EXTRA_AUTO_DELETE_SOURCE_URI, Uri::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(EXTRA_AUTO_DELETE_SOURCE_URI)
+        }
         BackgroundCompressionManager.setRunning(originalSize)
 
         val params = CompressionExecutor.Params(
@@ -153,7 +167,24 @@ class BackgroundCompressionService : Service() {
             onCompleted = { finalSize ->
                 val uri = Uri.fromFile(File(path))
                 BackgroundCompressionManager.complete(uri, finalSize)
-                finishCompression(getString(R.string.notification_bg_done))
+                val doneText = doneDetailsText(originalSize, finalSize)
+                if (autoSaveRelativePath != null && autoDeleteSourceUri != null) {
+                    // Keep the service (and its foreground notification) alive while this runs,
+                    // otherwise the imminent stopSelf() in finishCompression could race it.
+                    scope.launch(Dispatchers.IO) {
+                        val outputFile = File(path)
+                        if (outputFile.exists() &&
+                            MediaStoreVideoSaver.saveToRelativePath(applicationContext, outputFile, autoSaveRelativePath)
+                        ) {
+                            MediaDeleter.deleteOriginalVideo(applicationContext, autoDeleteSourceUri)
+                        }
+                        withContext(Dispatchers.Main.immediate) {
+                            finishCompression(doneText)
+                        }
+                    }
+                } else {
+                    finishCompression(doneText)
+                }
             },
             onError = { exportException ->
                 if (cancelled) {
@@ -184,16 +215,23 @@ class BackgroundCompressionService : Service() {
         }
     }
 
+    private fun doneDetailsText(originalSize: Long, compressedSize: Long): String {
+        if (originalSize <= 0L) return getString(R.string.notification_bg_done)
+        val percentSaved = (((originalSize - compressedSize) * 100L) / originalSize).toInt().coerceAtLeast(0)
+        return getString(
+            R.string.notification_bg_done_details,
+            formatFileSize(originalSize),
+            formatFileSize(compressedSize),
+            percentSaved
+        )
+    }
+
     private fun finishCompression(notificationText: String?) {
         progressJob?.cancel()
         progressJob = null
         transformer = null
         if (notificationText != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-                showDoneLiveUpdate(notificationText)
-            } else {
-                showDoneNotification(notificationText)
-            }
+            showDoneNotification(notificationText)
         }
         stopForeground(STOP_FOREGROUND_DETACH)
         stopSelf()
@@ -244,36 +282,6 @@ class BackgroundCompressionService : Service() {
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setCategory(Notification.CATEGORY_PROGRESS)
-            .setShowWhen(true)
-            .setWhen(System.currentTimeMillis())
-            .setExtras(liveUpdateExtras(contentText))
-            .setShortCriticalText(contentText)
-            .setStyle(progressStyle)
-            .build()
-    }
-
-    /**
-     * Completed-state live update: full progress bar, check tracker icon and "Done" text so the
-     * live activity ends with a clear result instead of silently disappearing.
-     */
-    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
-    @SuppressLint("InlinedApi")
-    private fun buildLiveUpdateDoneNotification(
-        contentText: String,
-        contentIntent: PendingIntent
-    ): Notification {
-        val progressStyle = Notification.ProgressStyle()
-            .setProgress(100)
-            .setStyledByProgress(false)
-            .setProgressTrackerIcon(Icon.createWithResource(this, R.drawable.ic_notification_done))
-        return Notification.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(getString(R.string.notification_bg_title))
-            .setContentText(contentText)
-            .setContentIntent(contentIntent)
-            .setOngoing(true)
-            .setOnlyAlertOnce(false)
             .setCategory(Notification.CATEGORY_PROGRESS)
             .setShowWhen(true)
             .setWhen(System.currentTimeMillis())
@@ -342,50 +350,18 @@ class BackgroundCompressionService : Service() {
         notifyCompressionNotification(buildDoneNotification(this, contentText))
     }
 
-    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
-    private fun showDoneLiveUpdate(contentText: String) {
-        notifyCompressionNotification(buildLiveUpdateDoneNotification(contentText, contentIntent()))
-        replaceDoneLiveUpdateWhenAppForegrounds(contentText)
-    }
-
-    /**
-     * Keeps the "Done" live update visible while the app is in the background and replaces it
-     * with a regular dismissable notification once the app returns to the foreground.
-     */
-    private fun replaceDoneLiveUpdateWhenAppForegrounds(contentText: String) {
-        val lifecycle = ProcessLifecycleOwner.get().lifecycle
-        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-            replaceDoneLiveUpdate(contentText)
-            return
-        }
-        lateinit var observer: LifecycleEventObserver
-        observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START && !BackgroundCompressionManager.state.value.isRunning) {
-                lifecycle.removeObserver(observer)
-                replaceDoneLiveUpdate(contentText)
-            }
-        }
-        lifecycle.addObserver(observer)
-    }
-
-    private fun replaceDoneLiveUpdate(contentText: String) {
-        val context = applicationContext
-        val manager = NotificationManagerCompat.from(context)
-        if (manager.areNotificationsEnabled()) {
-            manager.notify(NOTIFICATION_ID, buildDoneNotification(context, contentText))
-        }
-    }
-
+    /** No progress bar, auto-dismisses after 10 minutes if the user doesn't tap it first. */
     private fun buildDoneNotification(context: Context, contentText: String): Notification {
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.getString(R.string.notification_bg_title))
+            .setContentTitle(context.getString(R.string.notification_bg_done_title))
             .setContentText(contentText)
             .setContentIntent(contentIntent(context))
             .setAutoCancel(true)
             .setOngoing(false)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setTimeoutAfter(DONE_NOTIFICATION_TIMEOUT_MS)
             .build()
     }
 
@@ -402,6 +378,7 @@ class BackgroundCompressionService : Service() {
             stopSelf()
             return
         }
+        val totalOriginalSize = intent.getLongExtra(EXTRA_ORIGINAL_SIZE, 0L)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
@@ -463,11 +440,11 @@ class BackgroundCompressionService : Service() {
                     totalOutputSize,
                     completedUris
                 )
-                stopForeground(true)
-                stopSelf()
+                finishCompression(doneDetailsText(totalOriginalSize, totalOutputSize))
+            } else if (cancelled) {
+                finishCompression(null)
             } else {
-                stopForeground(true)
-                stopSelf()
+                finishCompression(getString(R.string.notification_bg_failed))
             }
         }
     }

@@ -71,6 +71,10 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".camera.CameraWatchCompressReceiver"
+            android:exported="false" />
+
         <meta-data
             android:name="com.samsung.android.support.ongoing_activity"
             android:value="true" />

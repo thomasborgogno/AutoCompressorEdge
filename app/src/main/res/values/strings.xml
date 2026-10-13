@@ -88,6 +88,8 @@
     <string name="notification_bg_title">Compressing video</string>
     <string name="notification_bg_starting">Starting…</string>
     <string name="notification_bg_done">Done</string>
+    <string name="notification_bg_done_title">Video compressed</string>
+    <string name="notification_bg_done_details">%1$s → %2$s (-%3$d%%)</string>
     <string name="notification_bg_failed">Compression failed</string>
     <string name="notification_bg_permission_denied">Notifications permission denied. Background compression continues without notifications.</string>
 
@@ -101,6 +103,7 @@
     <string name="notification_camera_watch_channel_name">New camera recording</string>
     <string name="notification_camera_watch_title">%1$s · Compress this video?</string>
     <string name="notification_camera_watch_text">%1$s</string>
+    <string name="notification_camera_watch_quality_label">Quality:</string>
 
     <!-- Errors -->
     <string name="error_file_lost">File lost</string>
