@@ -6,7 +6,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MimeTypes
 import compressedge.joshattic.us.MainActivity
@@ -54,7 +53,7 @@ class CameraWatchCompressReceiver : BroadcastReceiver() {
 
         val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
         if (notificationId != -1) {
-            NotificationManagerCompat.from(context).cancel(notificationId)
+            CameraWatchNotifications.cancel(context, notificationId)
         }
 
         val pendingResult = goAsync()

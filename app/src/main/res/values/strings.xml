@@ -104,6 +104,7 @@
     <string name="notification_camera_watch_title">%1$s · Compress this video?</string>
     <string name="notification_camera_watch_text">%1$s</string>
     <string name="notification_camera_watch_quality_label">Quality:</string>
+    <string name="notification_camera_watch_summary_text">%1$d video waiting to be compressed</string>
 
     <!-- Errors -->
     <string name="error_file_lost">File lost</string>
