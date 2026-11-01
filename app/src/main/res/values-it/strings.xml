@@ -103,7 +103,9 @@
     <string name="notification_camera_watch_channel_name">Nuova registrazione fotocamera</string>
     <string name="notification_camera_watch_title">%1$s · Comprimere questo video?</string>
     <string name="notification_camera_watch_text">%1$s</string>
-    <string name="notification_camera_watch_quality_label">Qualità:</string>
+    <string name="notification_camera_watch_delete">Elimina</string>
+    <string name="notification_camera_watch_delete_title">Eliminare il video?</string>
+    <string name="notification_camera_watch_delete_message">%1$s verrà eliminato definitivamente. L\'operazione non può essere annullata.</string>
     <string name="notification_camera_watch_summary_text">%1$d video in attesa di compressione</string>
 
     <!-- Errors -->

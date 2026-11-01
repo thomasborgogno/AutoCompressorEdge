@@ -75,6 +75,14 @@
             android:name=".camera.CameraWatchCompressReceiver"
             android:exported="false" />
 
+        <activity
+            android:name=".camera.CameraWatchDeleteActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <meta-data
             android:name="com.samsung.android.support.ongoing_activity"
             android:value="true" />

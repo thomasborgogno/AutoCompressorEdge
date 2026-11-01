@@ -58,22 +58,20 @@ object CameraWatchNotifications {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val expandedText = "$name\n${context.getString(R.string.notification_camera_watch_quality_label)}"
-
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.notification_camera_watch_title, formatFileSize(size)))
             .setContentText(context.getString(R.string.notification_camera_watch_text, name))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(expandedText))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(name))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
             .setGroup(GROUP_KEY)
 
-        presetAction(context, notificationId, uri, name, relativePath, QualityPreset.HIGH, R.string.preset_high)?.let { builder.addAction(it) }
         presetAction(context, notificationId, uri, name, relativePath, QualityPreset.MEDIUM, R.string.preset_medium)?.let { builder.addAction(it) }
         presetAction(context, notificationId, uri, name, relativePath, QualityPreset.LOW, R.string.preset_low)?.let { builder.addAction(it) }
+        builder.addAction(deleteAction(context, notificationId, uri, name))
 
         val manager = NotificationManagerCompat.from(context)
         if (manager.areNotificationsEnabled()) {
@@ -146,6 +144,32 @@ object CameraWatchNotifications {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Action.Builder(R.drawable.ic_notification, context.getString(labelRes), presetPendingIntent).build()
+    }
+
+    /** "Delete" button: opens a confirmation dialog before permanently deleting the video. */
+    private fun deleteAction(
+        context: Context,
+        notificationId: Int,
+        uri: Uri,
+        name: String
+    ): NotificationCompat.Action {
+        val deleteIntent = Intent(context, CameraWatchDeleteActivity::class.java).apply {
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(CameraWatchDeleteActivity.EXTRA_DISPLAY_NAME, name)
+            putExtra(CameraWatchDeleteActivity.EXTRA_NOTIFICATION_ID, notificationId)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId * 10 + 9,
+            deleteIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Action.Builder(
+            R.drawable.ic_notification,
+            context.getString(R.string.notification_camera_watch_delete),
+            pendingIntent
+        ).build()
     }
 
     private fun createNotificationChannel(context: Context) {

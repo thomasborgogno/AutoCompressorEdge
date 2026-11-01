@@ -103,7 +103,9 @@
     <string name="notification_camera_watch_channel_name">New camera recording</string>
     <string name="notification_camera_watch_title">%1$s · Compress this video?</string>
     <string name="notification_camera_watch_text">%1$s</string>
-    <string name="notification_camera_watch_quality_label">Quality:</string>
+    <string name="notification_camera_watch_delete">Delete</string>
+    <string name="notification_camera_watch_delete_title">Delete video?</string>
+    <string name="notification_camera_watch_delete_message">%1$s will be permanently deleted. This cannot be undone.</string>
     <string name="notification_camera_watch_summary_text">%1$d video waiting to be compressed</string>
 
     <!-- Errors -->
